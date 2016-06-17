@@ -1,3 +1,78 @@
 ---
 # Extract the snapshot
 
+#snap-e78236e3
+
+- name: Set the Date
+  set_fact: the_date="{{ ansible_date_time.iso8601 }}"
+
+- name: Get the snapshot details
+  shell: aws ec2 --region euca --endpoint-url="{{ api_protocol }}compute.{{ region_dns}}:{{ api_port }}" describe-snapshots --snapshot-ids "{{ src_snapshot }}"
+  register: snapshot_out
+
+- name: Set Snapshot details from JSON
+  set_fact: the_snapshot="{{ snapshot_out.stdout|from_json }}"
+
+- name: Fail if no snapshot
+  fail: msg="Could not find the snapshot {{ src_snapshot }}"
+  when:
+  - "{{ the_snapshot.Snapshots|length != 1 }}"
+
+- name: Debug the snapshot
+  debug: msg="{{ the_snapshot }}"
+  when:
+  - debug
+
+- name: Create the CF parameters
+  template: src=cf_parameters.json.j2 dest=/var/tmp/cf_parameters.json
+
+- name: Create the CF NAT2DNS Stack
+  shell: aws cloudformation create-stack --stack-name "{{ stack_name }}"
+         --template-url "{{ template_url }}"
+         --capabilities CAPABILITY_IAM
+         --disable-rollback
+         --parameters file:///var/tmp/cf_parameters.json
+         --region eucalyptus
+         --endpoint-url="http://cloudformation.{{ region_dns }}:8773/"
+
+- name: Wait for the stack creation to be complete
+  shell: aws cloudformation --region euca --endpoint-url="{{ api_protocol }}cloudformation.{{ region_dns}}:{{ api_port }}" describe-stacks --stack-name "{{ stack_name }}" --output=text | grep COMPLETE | wc -l
+  register: completed_count
+  until: "{{ completed_count.stdout|int > 0 }}"
+  retries: 100
+  delay: 6
+
+- name: Find the instance
+  shell: aws ec2 --region euca --endpoint-url="{{ api_protocol}}compute.{{ region_dns }}:{{ api_port }}/" describe-instances
+         --filters Name=tag:Name,Values=staging Name=tag:Snapshot,Values="{{ src_snapshot }}" Name=tag:TimeStamp,Values="{{ the_date }}"
+  register: instance_out
+
+- name: Set instance JSON
+  set_fact: the_instance="{{ instance_out.stdout|from_json }}"
+
+- name: Debug the instance
+  debug: msg="{{ the_instance }}"
+  when:
+  - debug
+
+- name: Check Reservations
+  fail: msg="There no or more than 1 reservation found"
+  when:
+  - "{{ the_instance.Reservations|length != 1 }}"
+
+- name: Check instance in reservation
+  fail: msg="There is more than one instance"
+  when:
+  - "{{ the_instance.Reservations[0].Instances|length > 1 }}"
+
+- name: Get Instance Public IP
+  set_fact: the_instance_eip="{{ the_instance.Reservations[0].Instances[0].PublicIpAddress }}"
+
+- name: Debug public EIP of the instance
+  debug: msg="{{ the_instance_eip }}"
+  when:
+  - debug
+
+- name: Add the staging Instance to the hosts
+  add_host: name="{{ the_instance_eip }}" ansible_ssh_host="{{ the_instance_eip }}" ansible_ssh_port="2223" ansible_ssh_private_key_file="/root/creds/john/john-dev.pem" group=staging-vm ansible_user="ec2-user"
+

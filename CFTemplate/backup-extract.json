@@ -1,8 +1,8 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Eucalyptus pre-ELB layer using HAProxy to transmit to DNS based destination. Author : John Mille",
+  "Description": "JM stack to extract a snapshot to a remote destination",
   "Parameters": {
-    "SrcSnap": {
+    "SrcSnapshot": {
       "Description": "Source of the snapshot",
       "Type": "String",
       "MinLength": "1",
@@ -17,6 +17,11 @@
       "MaxValue": 16384,
       "Default": 2048,
       "ConstraintDescription": "must be a valid volume Size"
+    },
+    "TimeStamp": {
+      "Description": "Staging volume size",
+      "Type": "String",
+      "ConstraintDescription": "Snapshot extraction timestamp"
     },
     "SSHLocation": {
       "Description": "The IP address range that can be used to SSH to the EC2 instances",
@@ -125,7 +130,7 @@
           "Ref": "Zone"
         },
         "SnapshotId": {
-          "Ref": "SrcSnap"
+          "Ref": "SrcSnapshot"
         }
       }
     },
@@ -172,6 +177,18 @@
           {
             "Key": "Name",
             "Value": "staging"
+          },
+          {
+            "Key": "Snapshot",
+            "Value": {
+              "Ref": "SrcSnapshot"
+            }
+          },
+          {
+            "Key": "TimeStamp",
+            "Value": {
+              "Ref": "TimeStamp"
+            }
           }
         ],
         "BlockDeviceMappings": [],

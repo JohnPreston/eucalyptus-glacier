@@ -1,0 +1,15 @@
+
+- hosts:
+  - localhost
+  vars_files:
+  - vars/cloud_params.json
+  - vars/params.json
+  roles:
+  - extract-snapshot
+  environment:
+  - AWS_CREDENTIAL_FILE: /var/tmp/awsrc
+
+- hosts:
+  - staging-vm
+  roles:
+  - export-snapshot

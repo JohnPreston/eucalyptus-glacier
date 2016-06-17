@@ -1,0 +1,8 @@
+
+params:
+- ParameterKey: SrcSnapshot
+  ParameterValue: "{{ src_snapshot }}"
+- ParameterKey: Zone
+  ParameterValue: "{{ zone }}"
+- ParameterKey: TimeStamp
+  ParameterValue: "{{ the_date }}"

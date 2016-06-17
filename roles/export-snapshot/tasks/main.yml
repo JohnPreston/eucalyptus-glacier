@@ -1,0 +1,10 @@
+---
+# Export the snapshot file to destination
+
+
+- name: Set the Date
+  set_fact: the_date="{{ ansible_date_time.iso8601 }}"
+
+- name: Dedup the snapshot into a file
+  shell: dd if=/dev/vdc of=/staging/"{{ src_snapshot }}-{{ the_date }}".img
+  become: yes
